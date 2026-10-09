@@ -80,7 +80,7 @@
 
 <script>
   /* ============================================================
-     CONFIG — change API_PATH if you rename the route
+     CONFIG
      ============================================================ */
   const API_PATH = "/api/rates";
 
@@ -93,7 +93,7 @@
 
   $("year").textContent = new Date().getFullYear();
 
-  /* remember the key locally so you don't retype it */
+  /* remember the key locally */
   keyEl.value = localStorage.getItem("er_api_key") || "";
 
   async function loadRates() {
@@ -109,11 +109,21 @@
     statusEl.textContent = "Loading…";
     cardEl.style.display = "none";
 
+    console.log("[rates] calling /api/rates with key =", key);
+
     try {
-      /* The key goes in a header, not the URL → it won't show up in logs */
+      /* cache-buster + no-store → browser NEVER replays an old answer */
       const res = await fetch(
-        `${API_PATH}?base=${encodeURIComponent(base)}`,
-        { headers: { "x-api-key": key } }
+        `${API_PATH}?base=${encodeURIComponent(base)}&_=${Date.now()}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "x-api-key": key,
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+          },
+        }
       );
 
       const data = await res.json();
@@ -122,7 +132,6 @@
         throw new Error(data.error || `Request failed (HTTP ${res.status})`);
       }
 
-      /* meta line with your branding */
       metaEl.textContent =
         `Base: ${data.base_code} · Updated: ${data.last_updated_utc} · ` +
         `by ${data.creator} (${data.instagram})`;
