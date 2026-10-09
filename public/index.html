@@ -55,7 +55,7 @@
 
   <div class="card">
     <div class="row">
-      <input id="key" type="password" placeholder="Private API key" autocomplete="off" />
+      <input id="key" type="password" placeholder="Private API key" autocomplete="off" value="" />
       <input id="base" type="text" placeholder="USD" value="USD" maxlength="3" />
       <button id="go">Get Rates</button>
     </div>
@@ -93,8 +93,10 @@
 
   $("year").textContent = new Date().getFullYear();
 
-  /* remember the key locally */
-  keyEl.value = localStorage.getItem("er_api_key") || "";
+  /* ---------- key field ALWAYS starts empty ---------- */
+  keyEl.value = "";
+  /* also wipe any old saved key from this browser */
+  try { localStorage.removeItem("er_api_key"); } catch (e) {}
 
   async function loadRates() {
     const key  = keyEl.value.trim();
@@ -104,12 +106,9 @@
       statusEl.textContent = "⚠️ Please enter your private API key.";
       return;
     }
-    localStorage.setItem("er_api_key", key);
 
     statusEl.textContent = "Loading…";
     cardEl.style.display = "none";
-
-    console.log("[rates] calling /api/rates with key =", key);
 
     try {
       /* cache-buster + no-store → browser NEVER replays an old answer */
