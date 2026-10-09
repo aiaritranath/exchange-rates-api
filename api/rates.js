@@ -12,6 +12,11 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
 
+  /* ---------- NEVER cache (auth-dependent response) ---------- */
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Vary", "x-api-key");
+
   if (req.method === "OPTIONS") return res.status(204).end();
 
   if (req.method !== "GET") {
@@ -49,7 +54,6 @@ export default async function handler(req, res) {
 
   /* ---------- 2. Build the HIDDEN upstream URL ---------- */
   const upstreamBase = process.env.UPSTREAM_RATES_URL;
-  // e.g. https://open.er-api.com/v6/latest/USD
 
   if (!upstreamBase) {
     return res.status(500).json({
@@ -63,11 +67,10 @@ export default async function handler(req, res) {
   let upstreamUrl = upstreamBase;
   const base = String(req.query.base || "").toUpperCase();
   if (/^[A-Z]{3}$/.test(base)) {
-    // swap the last path segment (the base currency) -> /latest/EUR
     upstreamUrl = upstreamBase.replace(/\/[^/]+$/, "/" + base);
   }
 
-  /* ---------- 3. Fetch upstream (server-side, browser never sees it) ---------- */
+  /* ---------- 3. Fetch upstream (browser never sees it) ---------- */
   try {
     const upstreamRes = await fetch(upstreamUrl, {
       headers: { Accept: "application/json" },
@@ -84,13 +87,7 @@ export default async function handler(req, res) {
 
     const data = await upstreamRes.json();
 
-    /* ---------- 4. Cache at Vercel's edge for 10 minutes ---------- */
-    res.setHeader(
-      "Cache-Control",
-      "public, s-maxage=600, stale-while-revalidate=1200"
-    );
-
-    /* ---------- 5. Clean public response (upstream identity stripped) ---------- */
+    /* ---------- 4. Clean public response (upstream identity stripped) ---------- */
     return res.status(200).json({
       result: "success",
       creator: CREATOR,
