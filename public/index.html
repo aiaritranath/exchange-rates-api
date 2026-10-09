@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exchange Rates API — Aritra Nath</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#262b36;
+    --txt:#e8ebf0; --mut:#8b93a7; --acc:#4f8cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px; background:var(--bg); color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 6px}
+  .sub{color:var(--mut);font-size:14px;margin-bottom:20px}
+  .sub a{color:var(--acc);text-decoration:none}
+  .card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:16px; margin-bottom:16px;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input,button{
+    font:inherit;padding:10px 12px;border-radius:10px;
+    border:1px solid var(--line);background:#0e1015;color:var(--txt);
+  }
+  input{flex:1;min-width:150px}
+  #base{flex:0 0 120px;min-width:120px;text-transform:uppercase}
+  button{
+    background:var(--acc);border-color:var(--acc);color:#fff;
+    cursor:pointer;font-weight:600;
+  }
+  button:hover{filter:brightness(1.1)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--card)}
+  .scroll{max-height:420px;overflow:auto;margin-top:10px}
+  .badge{display:inline-block;font-size:12.5px;color:var(--mut);line-height:1.6}
+  .status{font-size:13px;color:var(--mut);margin-top:10px}
+  footer{color:var(--mut);font-size:13px;text-align:center;margin-top:24px}
+  footer a{color:var(--acc);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>💱 Exchange Rates API</h1>
+  <div class="sub">
+    Creator: <strong>Aritra Nath</strong> ·
+    Instagram <a href="https://instagram.com/its_aritra_nath" target="_blank" rel="noopener">@its_aritra_nath</a>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <input id="key" type="password" placeholder="Private API key" autocomplete="off" />
+      <input id="base" type="text" placeholder="USD" value="USD" maxlength="3" />
+      <button id="go">Get Rates</button>
+    </div>
+    <div class="status" id="status">Enter your key and press “Get Rates”.</div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <div class="badge" id="meta"></div>
+    <div class="scroll">
+      <table id="tbl">
+        <thead><tr><th>Currency</th><th>Rate</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    © <span id="year"></span> Aritra Nath ·
+    <a href="https://instagram.com/its_aritra_nath" target="_blank" rel="noopener">@its_aritra_nath</a>
+  </footer>
+</div>
+
+<script>
+  /* ============================================================
+     CONFIG — change API_PATH if you rename the route
+     ============================================================ */
+  const API_PATH = "/api/rates";
+
+  const $ = (id) => document.getElementById(id);
+  const keyEl    = $("key");
+  const baseEl   = $("base");
+  const statusEl = $("status");
+  const cardEl   = $("resultCard");
+  const metaEl   = $("meta");
+
+  $("year").textContent = new Date().getFullYear();
+
+  /* remember the key locally so you don't retype it */
+  keyEl.value = localStorage.getItem("er_api_key") || "";
+
+  async function loadRates() {
+    const key  = keyEl.value.trim();
+    const base = (baseEl.value.trim() || "USD").toUpperCase();
+
+    if (!key) {
+      statusEl.textContent = "⚠️ Please enter your private API key.";
+      return;
+    }
+    localStorage.setItem("er_api_key", key);
+
+    statusEl.textContent = "Loading…";
+    cardEl.style.display = "none";
+
+    try {
+      /* The key goes in a header, not the URL → it won't show up in logs */
+      const res = await fetch(
+        `${API_PATH}?base=${encodeURIComponent(base)}`,
+        { headers: { "x-api-key": key } }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || data.result !== "success") {
+        throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+      }
+
+      /* meta line with your branding */
+      metaEl.textContent =
+        `Base: ${data.base_code} · Updated: ${data.last_updated_utc} · ` +
+        `by ${data.creator} (${data.instagram})`;
+
+      const tbody = $("tbl").querySelector("tbody");
+      tbody.innerHTML = "";
+
+      Object.entries(data.rates)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([code, rate]) => {
+          const tr = document.createElement("tr");
+          const td1 = document.createElement("td");
+          const td2 = document.createElement("td");
+          td1.textContent = code;
+          td2.textContent = rate;
+          tr.append(td1, td2);
+          tbody.appendChild(tr);
+        });
+
+      cardEl.style.display = "block";
+      statusEl.textContent = `✅ Loaded ${Object.keys(data.rates).length} currencies.`;
+    } catch (err) {
+      statusEl.textContent = "❌ " + err.message;
+    }
+  }
+
+  $("go").addEventListener("click", loadRates);
+  keyEl.addEventListener("keydown", (e) => e.key === "Enter" && loadRates());
+  baseEl.addEventListener("keydown", (e) => e.key === "Enter" && loadRates());
+</script>
+</body>
+</html>
